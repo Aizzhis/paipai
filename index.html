@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor Gráfico</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+      }
+
+      header {
+        text-align: center;
+        background-color: #f3967a;
+        color: white;
+        padding: 20px 0;
+        margin-bottom: 20px;
+      }
+
+      .canvas-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      canvas {
+        border: 2px solid #f3967a;
+        border-radius: 5px;
+      }
+
+      .tools {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      button,
+      input[type="color"] {
+        padding: 10px 20px;
+        background-color: #f3967a;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #f3967a;
+      }
+
+      .resize {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .color-picker-container,
+      .brush-size-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brush-size-container label {
+        font-weight: bold;
+      }
+
+      .brush-size-container input[type="range"] {
+        width: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Editor Gráfico</h1>
+    </header>
+    <div class="canvas-container">
+      <canvas id="paintCanvas"></canvas>
+    </div>
+    <div class="tools">
+      <div class="color-picker-container">
+        <label for="colorPicker">Cor do Pincel:</label>
+        <input type="color" id="colorPicker" value="#000000" />
+      </div>
+      <div class="brush-size-container">
+        <label for="brushSize">Tamanho do Pincel:</label>
+        <input type="range" id="brushSize" min="1" max="20" value="5" />
+      </div>
+      <button id="eraserButton">Borracha</button>
+      <button id="fillButton">Preencher</button>
+      <button id="increaseSizeButton">Aumentar Quadro</button>
+      <button id="clearButton">Limpar</button>
+      <div class="resize">
+        <input type="number" id="newWidthInput" placeholder="Nova Largura" />
+        <input type="number" id="newHeightInput" placeholder="Nova Altura" />
+        <button id="resizeButton">Redimensionar</button>
+      </div>
+    </div>
+
+    <script>
+      window.addEventListener("load", () => {
+        const canvas = document.getElementById("paintCanvas");
+        const context = canvas.getContext("2d");
+
+        let painting = false;
+        let erasing = false;
+        let filling = false;
+
+        function startPosition(e) {
+          e.preventDefault(); // Evita o comportamento padrão de toque (scrolling, etc.)
+
+          if (filling) {
+            const color = document.getElementById("colorPicker").value;
+            context.fillStyle = color;
+            context.fillRect(
+              e.touches
+                ? e.touches[0].clientX - canvas.offsetLeft
+                : e.clientX - canvas.offsetLeft,
+              e.touches
+                ? e.touches[0].clientY - canvas.offsetTop
+                : e.clientY - canvas.offsetTop,
+              1,
+              1
+            );
+            filling = false;
+            return;
+          }
+
+          if (erasing) {
+            context.strokeStyle = "white";
+            context.lineWidth = document.getElementById("brushSize").value;
+          } else {
+            context.strokeStyle = document.getElementById("colorPicker").value;
+            context.lineWidth = document.getElementById("brushSize").value;
+          }
+
+          painting = true;
+          draw(e);
+        }
+
+        function endPosition() {
+          painting = false;
+          erasing = false;
+          context.beginPath();
+        }
+
+        function draw(e) {
+          if (!painting) return;
+
+          context.lineCap = "round";
+          const x = e.touches
+            ? e.touches[0].clientX - canvas.offsetLeft
+            : e.clientX - canvas.offsetLeft;
+          const y = e.touches
+            ? e.touches[0].clientY - canvas.offsetTop
+            : e.clientY - canvas.offsetTop;
+
+          context.lineTo(x, y);
+          context.stroke();
+          context.beginPath();
+          context.moveTo(x, y);
+        }
+
+        canvas.addEventListener("mousedown", startPosition);
+        canvas.addEventListener("mouseup", endPosition);
+        canvas.addEventListener("mousemove", draw);
+
+        // Adiciona eventos de toque
+        canvas.addEventListener("touchstart", startPosition);
+        canvas.addEventListener("touchend", endPosition);
+        canvas.addEventListener("touchmove", draw);
+
+        const clearButton = document.getElementById("clearButton");
+        clearButton.addEventListener("click", () => {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        const eraserButton = document.getElementById("eraserButton");
+        eraserButton.addEventListener("click", () => {
+          erasing = true;
+        });
+
+        const fillButton = document.getElementById("fillButton");
+        fillButton.addEventListener("click", () => {
+          filling = true;
+        });
+
+        const increaseSizeButton =
+          document.getElementById("increaseSizeButton");
+        increaseSizeButton.addEventListener("click", () => {
+          const currentWidth = canvas.width;
+          const currentHeight = canvas.height;
+          const newWidth = currentWidth * 1.5;
+          const newHeight = currentHeight * 1.5;
+
+          resizeCanvas(newWidth, newHeight);
+        });
+
+        const resizeButton = document.getElementById("resizeButton");
+        resizeButton.addEventListener("click", () => {
+          const newWidth = parseInt(
+            document.getElementById("newWidthInput").value
+          );
+          const newHeight = parseInt(
+            document.getElementById("newHeightInput").value
+          );
+
+          if (newWidth && newHeight) {
+            resizeCanvas(newWidth, newHeight);
+          } else {
+            alert("Por favor, insira uma largura e altura válidas.");
+          }
+        });
+
+        function resizeCanvas(newWidth, newHeight) {
+          const imgData = context.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          context.putImageData(imgData, 0, 0);
+        }
+      });
+    </script>
+  </body>
+</html>
